@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.12</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>br.com.lunacom</groupId>
+    <artifactId>IVM-Monitor-Processamento</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>IVM-Monitor-Processamento</name>
+    <description>Demo project for Spring Boot</description>
+
+    <properties>
+        <!-- Usando JDK 18, conforme definido abaixo -->
+        <maven.compiler.source>18</maven.compiler.source>
+        <maven.compiler.target>18</maven.compiler.target>
+    </properties>
+
+    <dependencies>
+
+        <!-- CORE: Dependência principal que fornece @SpringBootApplication.
+             É boa prática tê-la, mesmo que outros starters a incluam. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- WEB: Removida a versão fixa (2.5.0) para usar 3.4.12 do parent. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <!-- A versão é gerenciada pelo <parent> (3.4.12) -->
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+            <!-- Inclui jakarta.validation-api -->
+        </dependency>
+
+        <!-- DEPENDÊNCIA DE LOMBOK ESTAVA FALTANDO, MAS ERA REFERENCIADA NO PLUGIN DE COMPILAÇÃO -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Conector MySQL 8 -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+        </dependency>
+
+        <!-- Documentação da API: Springfox foi removido por incompatibilidade com SB 3.x.
+             Adicionado SpringDoc OpenAPI, o padrão para SB 3.x. -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.5.0</version> <!-- Usando a versão mais recente do SpringDoc -->
+        </dependency>
+
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.12.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>br.com.lunacom</groupId>
+            <artifactId>comum</artifactId>
+            <version>1.0.8-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- TESTES: Já estava correto, usando o escopo 'test' -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- DEPENDÊNCIAS REDUNDANTES REMOVIDAS:
+             - jakarta.validation-api (já incluída pelo spring-boot-starter-validation)
+             - springfox-boot-starter (substituída por SpringDoc) -->
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Plugin do Spring Boot: Garantir que o JAR executável seja criado corretamente -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <!-- Plugin de Compilação: Configuração para Lombok (mantida) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
