@@ -15,25 +15,20 @@
     <description>Demo project for Spring Boot</description>
 
     <properties>
-        <!-- Usando JDK 18, conforme definido abaixo -->
         <maven.compiler.source>18</maven.compiler.source>
         <maven.compiler.target>18</maven.compiler.target>
     </properties>
 
     <dependencies>
 
-        <!-- CORE: Dependência principal que fornece @SpringBootApplication.
-             É boa prática tê-la, mesmo que outros starters a incluam. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
 
-        <!-- WEB: Removida a versão fixa (2.5.0) para usar 3.4.12 do parent. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-            <!-- A versão é gerenciada pelo <parent> (3.4.12) -->
         </dependency>
 
         <dependency>
@@ -44,10 +39,8 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
-            <!-- Inclui jakarta.validation-api -->
         </dependency>
 
-        <!-- DEPENDÊNCIA DE LOMBOK ESTAVA FALTANDO, MAS ERA REFERENCIADA NO PLUGIN DE COMPILAÇÃO -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -60,8 +53,6 @@
             <artifactId>mysql-connector-j</artifactId>
         </dependency>
 
-        <!-- Documentação da API: Springfox foi removido por incompatibilidade com SB 3.x.
-             Adicionado SpringDoc OpenAPI, o padrão para SB 3.x. -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
@@ -78,7 +69,7 @@
         <dependency>
             <groupId>br.com.lunacom</groupId>
             <artifactId>comum</artifactId>
-            <version>1.0.8-SNAPSHOT</version>
+            <version>1.0.9-SNAPSHOT</version>
         </dependency>
 
         <dependency>
@@ -88,16 +79,11 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- TESTES: Já estava correto, usando o escopo 'test' -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <!-- DEPENDÊNCIAS REDUNDANTES REMOVIDAS:
-             - jakarta.validation-api (já incluída pelo spring-boot-starter-validation)
-             - springfox-boot-starter (substituída por SpringDoc) -->
 
     </dependencies>
 
