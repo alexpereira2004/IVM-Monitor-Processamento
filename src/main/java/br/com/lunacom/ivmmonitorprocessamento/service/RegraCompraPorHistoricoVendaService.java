@@ -1,5 +1,6 @@
 package br.com.lunacom.ivmmonitorprocessamento.service;
 
+import br.com.lunacom.comum.domain.Ativo;
 import br.com.lunacom.comum.domain.MovimentoVenda;
 import br.com.lunacom.comum.domain.dto.CotacaoAgoraDto;
 import br.com.lunacom.comum.domain.entity.monitor.RegraCompraPorHistoricoVenda;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 @Slf4j
@@ -21,6 +23,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class RegraCompraPorHistoricoVendaService {
 
+    public static final String SEM_COTACAO = "Não foi encontrada a cotação para o Ativo %s ao tentar calcular a recomendação";
     private final RegraCompraPorHistoricoVendaRepository repository;
     private final CotacaoRepository cotacaoRepository;
     private final MovimentoVendaRepository movimentoVendaRepository;
@@ -34,10 +37,10 @@ public class RegraCompraPorHistoricoVendaService {
         final List<RegraCompraPorHistoricoVenda> regraList = this
                 .buscarMovimentoVendaPassado();
 
-        regraList.forEach( r -> {
-            final List<MovimentoVenda> movimentoVendas = this.buscarVendasPassadas(r);
+        regraList.forEach( regra -> {
+            final List<MovimentoVenda> movimentoVendas = this.buscarVendasPassadas(regra);
 
-            this.calcularRecomendacao();
+            this.calcularRecomendacao(cotacaoAgoraDtoList, movimentoVendas);
 
             this.salvarRecomendacao();
         });
@@ -101,7 +104,41 @@ public class RegraCompraPorHistoricoVendaService {
 //        log.info(all.get(0).getMonitor().getAtivo().toString());
     }
 
-    private void calcularRecomendacao() {
+    private void calcularRecomendacao(
+            List<CotacaoAgoraDto> cotacaoAgoraDtoList,
+            List<MovimentoVenda> movimentoVendas) {
+
+        final Ativo ativo = movimentoVendas.get(0).getAtivo();
+        final CotacaoAgoraDto cotacao = cotacaoAgoraDtoList.stream()
+                .filter(i -> i.getCodigo().equals(ativo.getCodigo()))
+                .findFirst()
+                .orElseThrow(
+                        () -> new NoSuchElementException(String.format(SEM_COTACAO, ativo.getCodigo())));
+
+        switch (movimentoVendas.size()) {
+            case 1:
+                System.out.println("1");
+                break;
+            case 2:
+                System.out.println("2");
+                break;
+            case 3:
+                System.out.println("3");
+                break;
+            case 4:
+                System.out.println("4");
+                break;
+            case 5:
+                System.out.println("5");
+                break;
+            default:
+                System.out.println("Mais que 5");
+                break;
+        }
+
+
+
+
     }
 
     private void salvarRecomendacao() {
