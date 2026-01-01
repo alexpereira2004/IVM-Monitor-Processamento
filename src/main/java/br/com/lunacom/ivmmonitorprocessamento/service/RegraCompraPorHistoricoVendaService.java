@@ -24,9 +24,18 @@ import java.util.Optional;
 public class RegraCompraPorHistoricoVendaService {
 
     public static final String SEM_COTACAO = "Não foi encontrada a cotação para o Ativo %s ao tentar calcular a recomendação";
+    public static final String SEM_VENDAS = "Nenhum movimento de venda fornecido para cálculo. Esse problema aconteceu para a regra %";
+    public static final String LOG_CALCULAR_RECOMENDACAO_01 = "Processando recomendação para {} (Volume: {} vendas)";
+    public static final String LOG_EXECUTANDO_REGRA = "Executando regra específica para {} venda de {}";
     private final RegraCompraPorHistoricoVendaRepository repository;
     private final CotacaoRepository cotacaoRepository;
     private final MovimentoVendaRepository movimentoVendaRepository;
+
+    private record RecomendacaoContext(
+            Ativo ativo,
+            CotacaoAgoraDto cotacao,
+            List<MovimentoVenda> vendas
+    ) {}
 
     public void processar(String request) throws Exception {
 
@@ -34,13 +43,12 @@ public class RegraCompraPorHistoricoVendaService {
 
 //        this.buscarRegra();
 
-        final List<RegraCompraPorHistoricoVenda> regraList = this
-                .buscarMovimentoVendaPassado();
+        final List<RegraCompraPorHistoricoVenda> regraList = this.buscarRegrasAtivas();
 
         regraList.forEach( regra -> {
             final List<MovimentoVenda> movimentoVendas = this.buscarVendasPassadas(regra);
 
-            this.calcularRecomendacao(cotacaoAgoraDtoList, movimentoVendas);
+            this.calcularRecomendacao(regra, cotacaoAgoraDtoList, movimentoVendas);
 
             this.salvarRecomendacao();
         });
@@ -89,7 +97,7 @@ public class RegraCompraPorHistoricoVendaService {
     private void buscarRegra() {
     }
 
-    private List<RegraCompraPorHistoricoVenda> buscarMovimentoVendaPassado() {
+    private List<RegraCompraPorHistoricoVenda> buscarRegrasAtivas() {
         final List<RegraCompraPorHistoricoVenda> all = repository.findByStatusAndValidade(
                 Status.ATIVO, null
         );
@@ -105,40 +113,66 @@ public class RegraCompraPorHistoricoVendaService {
     }
 
     private void calcularRecomendacao(
-            List<CotacaoAgoraDto> cotacaoAgoraDtoList,
+            RegraCompraPorHistoricoVenda regra, List<CotacaoAgoraDto> cotacaoAgoraDtoList,
             List<MovimentoVenda> movimentoVendas) {
 
-        final Ativo ativo = movimentoVendas.get(0).getAtivo();
-        final CotacaoAgoraDto cotacao = cotacaoAgoraDtoList.stream()
+        if (movimentoVendas == null || movimentoVendas.isEmpty()) {
+            log.warn(String.format(SEM_VENDAS, regra.getId()));
+            return;
+        }
+
+        final Ativo ativo = encontrarAtivo(movimentoVendas);
+
+        final CotacaoAgoraDto cotacao = buscarCotacao(cotacaoAgoraDtoList, ativo);
+
+        final RecomendacaoContext contexto = new RecomendacaoContext(ativo, cotacao, movimentoVendas);
+
+        log.info(LOG_CALCULAR_RECOMENDACAO_01, ativo.getCodigo(), movimentoVendas.size());
+
+        switch (movimentoVendas.size()) {
+            case 1 -> this.calcularRecomendacaoParaUmaVenda(contexto);
+            case 2 -> this.calcularRecomendacaoParaDuasVendas(contexto);
+            case 3 -> this.calcularRecomendacaoParaTresVendas(contexto);
+            case 4 -> this.calcularRecomendacaoParaQuatroVendas(contexto);
+            case 5 -> this.calcularRecomendacaoParaCincoVendas(contexto);
+            default -> this.calcularRecomendacaoParaMaisDeCincoVendas(contexto);
+        }
+    }
+
+    private Ativo encontrarAtivo(List<MovimentoVenda> movimentoVendas) {
+        return movimentoVendas.get(0).getAtivo();
+    }
+
+    private CotacaoAgoraDto buscarCotacao(List<CotacaoAgoraDto> cotacaoAgoraDtoList, Ativo ativo) {
+        return cotacaoAgoraDtoList.stream()
                 .filter(i -> i.getCodigo().equals(ativo.getCodigo()))
                 .findFirst()
                 .orElseThrow(
                         () -> new NoSuchElementException(String.format(SEM_COTACAO, ativo.getCodigo())));
+    }
 
-        switch (movimentoVendas.size()) {
-            case 1:
-                System.out.println("1");
-                break;
-            case 2:
-                System.out.println("2");
-                break;
-            case 3:
-                System.out.println("3");
-                break;
-            case 4:
-                System.out.println("4");
-                break;
-            case 5:
-                System.out.println("5");
-                break;
-            default:
-                System.out.println("Mais que 5");
-                break;
-        }
+    private void calcularRecomendacaoParaUmaVenda(RecomendacaoContext contexto) {
+        log.debug(LOG_EXECUTANDO_REGRA, 1, contexto.ativo().getCodigo());
 
+    }
 
+    private void calcularRecomendacaoParaDuasVendas(RecomendacaoContext contexto) {
+        log.debug(LOG_EXECUTANDO_REGRA, 2, contexto.ativo().getCodigo());
+    }
 
+    private void calcularRecomendacaoParaTresVendas(RecomendacaoContext contexto) {
+        log.debug(LOG_EXECUTANDO_REGRA, 3, contexto.ativo().getCodigo());
+    }
 
+    private void calcularRecomendacaoParaQuatroVendas(RecomendacaoContext contexto) {
+        log.debug(LOG_EXECUTANDO_REGRA, 4, contexto.ativo().getCodigo());
+    }
+
+    private void calcularRecomendacaoParaCincoVendas(RecomendacaoContext contexto) {
+        log.debug(LOG_EXECUTANDO_REGRA, 5, contexto.ativo().getCodigo());
+    }
+
+    private void calcularRecomendacaoParaMaisDeCincoVendas(RecomendacaoContext contexto) {
     }
 
     private void salvarRecomendacao() {
