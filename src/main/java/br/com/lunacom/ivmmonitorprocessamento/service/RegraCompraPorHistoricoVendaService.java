@@ -5,6 +5,8 @@ import br.com.lunacom.comum.domain.MovimentoVenda;
 import br.com.lunacom.comum.domain.dto.CotacaoAgoraDto;
 import br.com.lunacom.comum.domain.entity.monitor.RegraCompraPorHistoricoVenda;
 import br.com.lunacom.comum.domain.enumeration.Status;
+import br.com.lunacom.ivmmonitorprocessamento.domain.EscalaRecomendacao;
+import br.com.lunacom.ivmmonitorprocessamento.domain.Recomendacao;
 import br.com.lunacom.ivmmonitorprocessamento.repository.CotacaoRepository;
 import br.com.lunacom.ivmmonitorprocessamento.repository.MovimentoVendaRepository;
 import br.com.lunacom.ivmmonitorprocessamento.repository.RegraCompraPorHistoricoVendaRepository;
@@ -12,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
@@ -31,10 +35,17 @@ public class RegraCompraPorHistoricoVendaService {
     private final CotacaoRepository cotacaoRepository;
     private final MovimentoVendaRepository movimentoVendaRepository;
 
-    private record RecomendacaoContext(
+    private record AtributosParaCalculoRecomendacaoContext(
             Ativo ativo,
             CotacaoAgoraDto cotacao,
             List<MovimentoVenda> vendas
+    ) {}
+
+    private record RecomendacaoFinalContext(
+            Recomendacao recomendacao,
+            EscalaRecomendacao escalaRecomendacao,
+            String analise,
+            String observacao
     ) {}
 
     public void processar(String request) throws Exception {
@@ -114,7 +125,8 @@ public class RegraCompraPorHistoricoVendaService {
 
     private void calcularRecomendacao(
             RegraCompraPorHistoricoVenda regra, List<CotacaoAgoraDto> cotacaoAgoraDtoList,
-            List<MovimentoVenda> movimentoVendas) {
+            List<MovimentoVenda> movimentoVendas)
+    {
 
         if (movimentoVendas == null || movimentoVendas.isEmpty()) {
             log.warn(String.format(SEM_VENDAS, regra.getId()));
@@ -125,7 +137,7 @@ public class RegraCompraPorHistoricoVendaService {
 
         final CotacaoAgoraDto cotacao = buscarCotacao(cotacaoAgoraDtoList, ativo);
 
-        final RecomendacaoContext contexto = new RecomendacaoContext(ativo, cotacao, movimentoVendas);
+        final AtributosParaCalculoRecomendacaoContext contexto = new AtributosParaCalculoRecomendacaoContext(ativo, cotacao, movimentoVendas);
 
         log.info(LOG_CALCULAR_RECOMENDACAO_01, ativo.getCodigo(), movimentoVendas.size());
 
@@ -151,28 +163,43 @@ public class RegraCompraPorHistoricoVendaService {
                         () -> new NoSuchElementException(String.format(SEM_COTACAO, ativo.getCodigo())));
     }
 
-    private void calcularRecomendacaoParaUmaVenda(RecomendacaoContext contexto) {
+    private RecomendacaoFinalContext calcularRecomendacaoParaUmaVenda(AtributosParaCalculoRecomendacaoContext contexto) {
         log.debug(LOG_EXECUTANDO_REGRA, 1, contexto.ativo().getCodigo());
 
+        BigDecimal precoAtual = contexto.cotacao.getCotacaoAtual();
+        final BigDecimal precoPago = BigDecimal.valueOf(contexto.vendas.get(0).getPrecoPago());
+
+        final BigDecimal relacao = precoAtual.subtract(precoPago)
+                .divide(precoPago, 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(2, RoundingMode.HALF_UP);
+
+        log.info("Teste");
+        return new RecomendacaoFinalContext(Recomendacao.COMPRA, EscalaRecomendacao.RECOMENDACAO_01, null, null);
     }
 
-    private void calcularRecomendacaoParaDuasVendas(RecomendacaoContext contexto) {
+    private RecomendacaoFinalContext calcularRecomendacaoParaDuasVendas(AtributosParaCalculoRecomendacaoContext contexto) {
         log.debug(LOG_EXECUTANDO_REGRA, 2, contexto.ativo().getCodigo());
+        return null;
     }
 
-    private void calcularRecomendacaoParaTresVendas(RecomendacaoContext contexto) {
+    private RecomendacaoFinalContext calcularRecomendacaoParaTresVendas(AtributosParaCalculoRecomendacaoContext contexto) {
         log.debug(LOG_EXECUTANDO_REGRA, 3, contexto.ativo().getCodigo());
+        return null;
     }
 
-    private void calcularRecomendacaoParaQuatroVendas(RecomendacaoContext contexto) {
+    private RecomendacaoFinalContext calcularRecomendacaoParaQuatroVendas(AtributosParaCalculoRecomendacaoContext contexto) {
         log.debug(LOG_EXECUTANDO_REGRA, 4, contexto.ativo().getCodigo());
+        return null;
     }
 
-    private void calcularRecomendacaoParaCincoVendas(RecomendacaoContext contexto) {
+    private RecomendacaoFinalContext calcularRecomendacaoParaCincoVendas(AtributosParaCalculoRecomendacaoContext contexto) {
         log.debug(LOG_EXECUTANDO_REGRA, 5, contexto.ativo().getCodigo());
+        return null;
     }
 
-    private void calcularRecomendacaoParaMaisDeCincoVendas(RecomendacaoContext contexto) {
+    private RecomendacaoFinalContext calcularRecomendacaoParaMaisDeCincoVendas(AtributosParaCalculoRecomendacaoContext contexto) {
+        return null;
     }
 
     private void salvarRecomendacao() {
