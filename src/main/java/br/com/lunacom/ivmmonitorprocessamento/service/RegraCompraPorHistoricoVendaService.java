@@ -29,6 +29,7 @@ public class RegraCompraPorHistoricoVendaService {
     public static final String LOG_CALCULAR_RECOMENDACAO_01 = "Processando recomendação para {} (Volume: {} vendas)";
     public static final String LOG_EXECUTANDO_REGRA = "Executando regra específica para {} venda de {}";
     public static final String LOG_SALVAR_RECOMENDACAO_01 = "Uma recomendacao não pode ser salva pois ela não existe";
+    public static final String LOG_OBSERVACAO_PARA_UMA_VENDA = "O preço atual considerado para o calculo foi de R$ %s. O valor da aquisição na única venda foi de R$ %s. A relação entre os preços está %s%% mais %s ";
     private final RegraCompraPorHistoricoVendaRepository repository;
     private final CotacaoRepository cotacaoRepository;
     private final MovimentoVendaRepository movimentoVendaRepository;
@@ -195,10 +196,12 @@ public class RegraCompraPorHistoricoVendaService {
                 .multiply(BigDecimal.valueOf(100))
                 .setScale(2, RoundingMode.HALF_UP);
 
+        String ajuste = "cara";
         Recomendacao recomendacaoFinal = Recomendacao.NEUTRO;
         EscalaRecomendacao escalaFinal = EscalaRecomendacao.RECOMENDACAO_00;
 
         if (relacao.compareTo(BigDecimal.ZERO) <= 0) {
+            ajuste = "barata";
             recomendacaoFinal = Recomendacao.COMPRA;
             var entry = ESCALAS_COMPRA.higherEntry(relacao);
             if (entry != null) {
@@ -208,7 +211,9 @@ public class RegraCompraPorHistoricoVendaService {
             }
         }
 
-        return new RecomendacaoFinalContext(recomendacaoFinal, escalaFinal, null, null);
+        String observacao = String.format(LOG_OBSERVACAO_PARA_UMA_VENDA, precoAtual, precoPago, relacao, ajuste);
+
+        return new RecomendacaoFinalContext(recomendacaoFinal, escalaFinal, null, observacao);
     }
 
 
