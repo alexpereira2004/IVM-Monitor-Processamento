@@ -17,10 +17,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.Collections;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Optional;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -31,6 +28,7 @@ public class RegraCompraPorHistoricoVendaService {
     public static final String SEM_VENDAS = "Nenhum movimento de venda fornecido para cálculo. Esse problema aconteceu para a regra %";
     public static final String LOG_CALCULAR_RECOMENDACAO_01 = "Processando recomendação para {} (Volume: {} vendas)";
     public static final String LOG_EXECUTANDO_REGRA = "Executando regra específica para {} venda de {}";
+    public static final String LOG_SALVAR_RECOMENDACAO_01 = "Uma recomendacao não pode ser salva pois ela não existe";
     private final RegraCompraPorHistoricoVendaRepository repository;
     private final CotacaoRepository cotacaoRepository;
     private final MovimentoVendaRepository movimentoVendaRepository;
@@ -41,28 +39,33 @@ public class RegraCompraPorHistoricoVendaService {
             List<MovimentoVenda> vendas
     ) {}
 
-    private record RecomendacaoFinalContext(
+    public record RecomendacaoFinalContext(
             Recomendacao recomendacao,
             EscalaRecomendacao escalaRecomendacao,
             String analise,
             String observacao
     ) {}
 
-    public void processar(String request) throws Exception {
+    public Map<Integer, RecomendacaoFinalContext> processar(String request) {
+
+        Map<Integer, RecomendacaoFinalContext> recomendacaoFinalContextMap = new HashMap<>();
 
         final List<CotacaoAgoraDto> cotacaoAgoraDtoList = this.buscarCotacaoAgora();
-
-//        this.buscarRegra();
 
         final List<RegraCompraPorHistoricoVenda> regraList = this.buscarRegrasAtivas();
 
         regraList.forEach( regra -> {
             final List<MovimentoVenda> movimentoVendas = this.buscarVendasPassadas(regra);
 
-            this.calcularRecomendacao(regra, cotacaoAgoraDtoList, movimentoVendas);
+            final RecomendacaoFinalContext recomendacaoFinalContext = this
+                    .calcularRecomendacao(regra, cotacaoAgoraDtoList, movimentoVendas);
 
-            this.salvarRecomendacao();
+            this.salvarRecomendacao(regra, recomendacaoFinalContext);
+            recomendacaoFinalContextMap.put(
+                    regra.getId(),
+                    recomendacaoFinalContext);
         });
+        return recomendacaoFinalContextMap;
     }
 
     public List<MovimentoVenda> buscarVendasPassadas(RegraCompraPorHistoricoVenda regra) {
@@ -123,14 +126,14 @@ public class RegraCompraPorHistoricoVendaService {
 //        log.info(all.get(0).getMonitor().getAtivo().toString());
     }
 
-    private void calcularRecomendacao(
+    private RecomendacaoFinalContext calcularRecomendacao(
             RegraCompraPorHistoricoVenda regra, List<CotacaoAgoraDto> cotacaoAgoraDtoList,
             List<MovimentoVenda> movimentoVendas)
     {
 
         if (movimentoVendas == null || movimentoVendas.isEmpty()) {
             log.warn(String.format(SEM_VENDAS, regra.getId()));
-            return;
+            return null;
         }
 
         final Ativo ativo = encontrarAtivo(movimentoVendas);
@@ -141,14 +144,15 @@ public class RegraCompraPorHistoricoVendaService {
 
         log.info(LOG_CALCULAR_RECOMENDACAO_01, ativo.getCodigo(), movimentoVendas.size());
 
-        switch (movimentoVendas.size()) {
+        return switch (movimentoVendas.size()) {
             case 1 -> this.calcularRecomendacaoParaUmaVenda(contexto);
             case 2 -> this.calcularRecomendacaoParaDuasVendas(contexto);
             case 3 -> this.calcularRecomendacaoParaTresVendas(contexto);
             case 4 -> this.calcularRecomendacaoParaQuatroVendas(contexto);
             case 5 -> this.calcularRecomendacaoParaCincoVendas(contexto);
             default -> this.calcularRecomendacaoParaMaisDeCincoVendas(contexto);
-        }
+        };
+
     }
 
     private Ativo encontrarAtivo(List<MovimentoVenda> movimentoVendas) {
@@ -163,7 +167,9 @@ public class RegraCompraPorHistoricoVendaService {
                         () -> new NoSuchElementException(String.format(SEM_COTACAO, ativo.getCodigo())));
     }
 
-    private RecomendacaoFinalContext calcularRecomendacaoParaUmaVenda(AtributosParaCalculoRecomendacaoContext contexto) {
+    private RecomendacaoFinalContext calcularRecomendacaoParaUmaVenda(
+            AtributosParaCalculoRecomendacaoContext contexto)
+    {
         log.debug(LOG_EXECUTANDO_REGRA, 1, contexto.ativo().getCodigo());
 
         BigDecimal precoAtual = contexto.cotacao.getCotacaoAtual();
@@ -174,35 +180,99 @@ public class RegraCompraPorHistoricoVendaService {
                 .multiply(BigDecimal.valueOf(100))
                 .setScale(2, RoundingMode.HALF_UP);
 
-        log.info("Teste");
-        return new RecomendacaoFinalContext(Recomendacao.COMPRA, EscalaRecomendacao.RECOMENDACAO_01, null, null);
+
+        Recomendacao recomendacaoFinal = Recomendacao.NEUTRO;
+        EscalaRecomendacao escalaFinal = EscalaRecomendacao.RECOMENDACAO_00;
+
+        if (relacao.compareTo(BigDecimal.valueOf(-9.99)) < 0) {
+            recomendacaoFinal = Recomendacao.COMPRA;
+            escalaFinal = EscalaRecomendacao.RECOMENDACAO_10;
+        } else if (relacao.compareTo(BigDecimal.valueOf(-9.00)) < 0) {
+            recomendacaoFinal = Recomendacao.COMPRA;
+            escalaFinal = EscalaRecomendacao.RECOMENDACAO_09;
+        } else if (relacao.compareTo(BigDecimal.valueOf(-8.00)) < 0) {
+            recomendacaoFinal = Recomendacao.COMPRA;
+            escalaFinal = EscalaRecomendacao.RECOMENDACAO_08;
+        } else if (relacao.compareTo(BigDecimal.valueOf(-7.00)) < 0) {
+            recomendacaoFinal = Recomendacao.COMPRA;
+            escalaFinal = EscalaRecomendacao.RECOMENDACAO_07;
+        } else if (relacao.compareTo(BigDecimal.valueOf(-6.00)) < 0) {
+            recomendacaoFinal = Recomendacao.COMPRA;
+            escalaFinal = EscalaRecomendacao.RECOMENDACAO_06;
+        } else if (relacao.compareTo(BigDecimal.valueOf(-5.00)) < 0) {
+            recomendacaoFinal = Recomendacao.COMPRA;
+            escalaFinal = EscalaRecomendacao.RECOMENDACAO_05;
+        } else if (relacao.compareTo(BigDecimal.valueOf(-4.00)) < 0) {
+            recomendacaoFinal = Recomendacao.COMPRA;
+            escalaFinal = EscalaRecomendacao.RECOMENDACAO_04;
+        } else if (relacao.compareTo(BigDecimal.valueOf(-3.00)) < 0) {
+            recomendacaoFinal = Recomendacao.COMPRA;
+            escalaFinal = EscalaRecomendacao.RECOMENDACAO_03;
+        } else if (relacao.compareTo(BigDecimal.valueOf(-2.00)) < 0) {
+            recomendacaoFinal = Recomendacao.COMPRA;
+            escalaFinal = EscalaRecomendacao.RECOMENDACAO_02;
+        } else if (relacao.compareTo(BigDecimal.valueOf(-0.01)) < 0) {
+            recomendacaoFinal = Recomendacao.COMPRA;
+            escalaFinal = EscalaRecomendacao.RECOMENDACAO_01;
+        } else if (relacao.compareTo(BigDecimal.valueOf(0.00)) == 0) {
+            recomendacaoFinal = Recomendacao.COMPRA;
+        }
+
+
+        return new RecomendacaoFinalContext(
+                recomendacaoFinal,
+                escalaFinal,
+                null, null);
     }
 
-    private RecomendacaoFinalContext calcularRecomendacaoParaDuasVendas(AtributosParaCalculoRecomendacaoContext contexto) {
+    private RecomendacaoFinalContext calcularRecomendacaoParaDuasVendas(
+            AtributosParaCalculoRecomendacaoContext contexto)
+    {
         log.debug(LOG_EXECUTANDO_REGRA, 2, contexto.ativo().getCodigo());
         return null;
     }
 
-    private RecomendacaoFinalContext calcularRecomendacaoParaTresVendas(AtributosParaCalculoRecomendacaoContext contexto) {
+    private RecomendacaoFinalContext calcularRecomendacaoParaTresVendas(
+            AtributosParaCalculoRecomendacaoContext contexto)
+    {
         log.debug(LOG_EXECUTANDO_REGRA, 3, contexto.ativo().getCodigo());
         return null;
     }
 
-    private RecomendacaoFinalContext calcularRecomendacaoParaQuatroVendas(AtributosParaCalculoRecomendacaoContext contexto) {
+    private RecomendacaoFinalContext calcularRecomendacaoParaQuatroVendas(
+            AtributosParaCalculoRecomendacaoContext contexto)
+    {
         log.debug(LOG_EXECUTANDO_REGRA, 4, contexto.ativo().getCodigo());
         return null;
     }
 
-    private RecomendacaoFinalContext calcularRecomendacaoParaCincoVendas(AtributosParaCalculoRecomendacaoContext contexto) {
+    private RecomendacaoFinalContext calcularRecomendacaoParaCincoVendas(
+            AtributosParaCalculoRecomendacaoContext contexto)
+    {
         log.debug(LOG_EXECUTANDO_REGRA, 5, contexto.ativo().getCodigo());
         return null;
     }
 
-    private RecomendacaoFinalContext calcularRecomendacaoParaMaisDeCincoVendas(AtributosParaCalculoRecomendacaoContext contexto) {
+    private RecomendacaoFinalContext calcularRecomendacaoParaMaisDeCincoVendas(
+            AtributosParaCalculoRecomendacaoContext contexto)
+    {
         return null;
     }
 
-    private void salvarRecomendacao() {
+    private void salvarRecomendacao(
+            RegraCompraPorHistoricoVenda regra,
+            RecomendacaoFinalContext recomendacaoFinalContext)
+    {
 
+        if (Objects.isNull(recomendacaoFinalContext)) {
+            log.warn(LOG_SALVAR_RECOMENDACAO_01);
+            return;
+        }
+
+        regra.setAnalise(recomendacaoFinalContext.analise);
+        regra.setRecomendacao(recomendacaoFinalContext.recomendacao.getCodigo());
+        regra.setRecomendacaoEscala(Integer.parseInt(recomendacaoFinalContext.escalaRecomendacao.getCodigo()));
+        regra.setObservacao(recomendacaoFinalContext.observacao);
+        repository.save(regra);
     }
 }
