@@ -14,13 +14,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -47,7 +53,7 @@ class RegraCompraPorHistoricoVendaServiceTest {
     @BeforeEach
     void setUp() {
         ativoMock = new Ativo();
-        ativoMock.setCodigo("PETR4");
+        ativoMock.setCodigo("BBSE3");
 
         Monitor monitorMock = new Monitor();
         monitorMock.setAtivo(ativoMock);
@@ -60,9 +66,11 @@ class RegraCompraPorHistoricoVendaServiceTest {
     @DisplayName("Deve buscar vendas passadas quando o periodo for ULTIMA_VENDA")
     void deveBuscarVendasPassadasUltimaVenda() {
         // Arrange
+        regraMock.setId(1);
         regraMock.setPeriodo(PeriodoVenda.ULTIMA_VENDA);
+
         MovimentoVenda venda = new MovimentoVenda();
-        when(movimentoVendaRepository.findTopByAtivoCodigoOrderByDataVendaDesc("PETR4"))
+        when(movimentoVendaRepository.findTopByAtivoCodigoOrderByDataVendaDesc("BBSE3"))
                 .thenReturn(Optional.of(venda));
 
         // Act
@@ -70,7 +78,7 @@ class RegraCompraPorHistoricoVendaServiceTest {
 
         // Assert
         assertEquals(1, resultado.size());
-        verify(movimentoVendaRepository).findTopByAtivoCodigoOrderByDataVendaDesc("PETR4");
+        verify(movimentoVendaRepository).findTopByAtivoCodigoOrderByDataVendaDesc("BBSE3");
     }
 
     @Test
@@ -78,7 +86,7 @@ class RegraCompraPorHistoricoVendaServiceTest {
     void deveBuscarVendasPassadasAnoAtual() {
         // Arrange
         regraMock.setPeriodo(PeriodoVenda.ANO_ATUAL);
-        when(movimentoVendaRepository.findAllByAtivoCodigoAndDataVendaAfter(eq("PETR4"), any(LocalDate.class)))
+        when(movimentoVendaRepository.findAllByAtivoCodigoAndDataVendaAfter(eq("BBSE3"), any(LocalDate.class)))
                 .thenReturn(List.of(new MovimentoVenda(), new MovimentoVenda()));
 
         // Act
@@ -86,33 +94,44 @@ class RegraCompraPorHistoricoVendaServiceTest {
 
         // Assert
         assertEquals(2, resultado.size());
-        verify(movimentoVendaRepository).findAllByAtivoCodigoAndDataVendaAfter(eq("PETR4"), any(LocalDate.class));
+        verify(movimentoVendaRepository).findAllByAtivoCodigoAndDataVendaAfter(eq("BBSE3"), any(LocalDate.class));
     }
 
-    @Test
-    @DisplayName("Deve processar regras e invocar cálculo de recomendação")
-    void deveProcessarComSucesso() throws Exception {
-        // Arrange
+    @ParameterizedTest
+    @MethodSource("providerParaBateriaRecomendacao")
+    @DisplayName("Deve calcular com sucesso recomendacao para acao que tenha UMA venda")
+    void deveProcessarComSucesso(BigDecimal precoAtual,
+                                 String descEsperada,
+                                 String escalaEsperada) throws Exception
+    {
+        // Cenário
         CotacaoAgoraDto cotacao = new CotacaoAgoraDto();
-        cotacao.setCodigo("PETR4");
+        cotacao.setCodigo("BBSE3");
+        cotacao.setCotacaoAtual(precoAtual);
 
         MovimentoVenda v1 = new MovimentoVenda();
         v1.setAtivo(ativoMock);
+        v1.setPrecoPago(10.0);
 
         regraMock.setPeriodo(PeriodoVenda.ULTIMA_VENDA);
+        regraMock.setId(1);
 
         when(cotacaoRepository.pesquisarCotacaoAgora()).thenReturn(List.of(cotacao));
-        when(repository.findByStatusAndValidade(Status.ATIVO, null)).thenReturn(List.of(regraMock));
-        when(movimentoVendaRepository.findTopByAtivoCodigoOrderByDataVendaDesc("PETR4")).thenReturn(Optional.of(v1));
 
-        // Act
-        // Como o método 'processar' é void e apenas loga, verificamos se ele executa sem exceções
-        // e se os métodos de busca foram chamados.
-        assertDoesNotThrow(() -> service.processar("dummy request"));
+        when(repository.findByStatusAndValidade(Status.ATIVO, null))
+                .thenReturn(List.of(regraMock));
 
-        // Assert
-        verify(cotacaoRepository).pesquisarCotacaoAgora();
-        verify(repository).findByStatusAndValidade(Status.ATIVO, null);
+        when(movimentoVendaRepository.findTopByAtivoCodigoOrderByDataVendaDesc("BBSE3"))
+                .thenReturn(Optional.of(v1));
+
+        // Ação
+        final Map<Integer, RegraCompraPorHistoricoVendaService.RecomendacaoFinalContext> resposta =
+                service.processar("");
+
+        // Verificação
+        assertNotNull(resposta);
+        assertEquals(descEsperada, resposta.get(1).recomendacao().getDescricao());
+        assertEquals(escalaEsperada, resposta.get(1).escalaRecomendacao().getCodigo());
     }
 
     @Test
@@ -120,7 +139,7 @@ class RegraCompraPorHistoricoVendaServiceTest {
     void deveLancarExcecaoQuandoSemCotacao() {
         // Arrange
         CotacaoAgoraDto cotacaoDiferente = new CotacaoAgoraDto();
-        cotacaoDiferente.setCodigo("VALE3"); // Diferente de PETR4
+        cotacaoDiferente.setCodigo("VALE3"); // Diferente de BBSE3
 
         MovimentoVenda v1 = new MovimentoVenda();
         v1.setAtivo(ativoMock);
@@ -132,5 +151,25 @@ class RegraCompraPorHistoricoVendaServiceTest {
 
         // Act & Assert
         assertThrows(java.util.NoSuchElementException.class, () -> service.processar("request"));
+    }
+
+    private static Stream<Arguments> providerParaBateriaRecomendacao() {
+        return Stream.of(
+
+                Arguments.of(BigDecimal.valueOf(8), "Compra", "10"),
+                Arguments.of(BigDecimal.valueOf(9.09), "Compra", "9"),
+                Arguments.of(BigDecimal.valueOf(9.19), "Compra", "8"),
+                Arguments.of(BigDecimal.valueOf(9.29), "Compra", "7"),
+                Arguments.of(BigDecimal.valueOf(9.39), "Compra", "6"),
+                Arguments.of(BigDecimal.valueOf(9.49), "Compra", "5"),
+                Arguments.of(BigDecimal.valueOf(9.59), "Compra", "4"),
+                Arguments.of(BigDecimal.valueOf(9.69), "Compra", "3"),
+                Arguments.of(BigDecimal.valueOf(9.79), "Compra", "2"),
+                Arguments.of(BigDecimal.valueOf(9.89), "Compra", "1"),
+                Arguments.of(BigDecimal.valueOf(9.99), "Compra", "1"),
+                Arguments.of(BigDecimal.valueOf(10), "Compra", "0"),
+                Arguments.of(BigDecimal.valueOf(10.02), "Neutro", "0"),
+                Arguments.of(BigDecimal.valueOf(11), "Neutro", "0")
+        );
     }
 }
