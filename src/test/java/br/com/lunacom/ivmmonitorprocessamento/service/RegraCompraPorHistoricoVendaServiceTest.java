@@ -23,9 +23,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -138,6 +140,52 @@ class RegraCompraPorHistoricoVendaServiceTest {
         assertThat(resposta.get(1).observacao()).contains(ajuste);
     }
 
+
+
+    @ParameterizedTest
+    @MethodSource("providerParaBateriaRecomendacaoDuasVendas")
+    @DisplayName("Deve calcular com sucesso recomendacao para acao que tenha DUAS vendas")
+    void deveProcessarComSucessoDuasVendas(BigDecimal precoAtual,
+                                           String descEsperada,
+                                           String escalaEsperada,
+                                           String ajuste) throws Exception
+    {
+        // Cenário
+        CotacaoAgoraDto cotacao = new CotacaoAgoraDto();
+        cotacao.setCodigo("BEES4");
+        cotacao.setCotacaoAtual(precoAtual);
+
+        final Ativo ativo = new Ativo();
+        ativo.setCodigo("BEES4");
+
+
+        Monitor monitor = new Monitor();
+        monitor.setAtivo(ativo);
+
+        final RegraCompraPorHistoricoVenda regra = new RegraCompraPorHistoricoVenda();
+        regra.setMonitor(monitor);
+        regra.setPeriodo(PeriodoVenda.TODO_HISTORICO);
+        regra.setId(1);
+
+        when(cotacaoRepository.pesquisarCotacaoAgora()).thenReturn(List.of(cotacao));
+
+        when(repository.findByStatusAndValidade(Status.ATIVO, null))
+                .thenReturn(List.of(regra));
+
+        final List<MovimentoVenda> vendaList = this.criarListaVendas(ativo, 10.0, 15.0);
+        when(movimentoVendaRepository.findAllByAtivoCodigo("BEES4")).thenReturn(vendaList);
+
+        // Ação
+        final Map<Integer, RegraCompraPorHistoricoVendaService.RecomendacaoFinalContext> resposta =
+                service.processar("");
+
+        // Verificação
+        assertNotNull(resposta);
+        assertEquals(descEsperada, resposta.get(1).recomendacao().getDescricao());
+        assertEquals(escalaEsperada, resposta.get(1).escalaRecomendacao().getCodigo());
+//        assertThat(resposta.get(1).observacao()).contains(ajuste);
+    }
+
     @Test
     @DisplayName("Deve lançar exceção quando não houver cotação para o ativo no processamento")
     void deveLancarExcecaoQuandoSemCotacao() {
@@ -175,5 +223,28 @@ class RegraCompraPorHistoricoVendaServiceTest {
                 Arguments.of(BigDecimal.valueOf(10.02), "Neutro", "0", "cara"),
                 Arguments.of(BigDecimal.valueOf(11), "Neutro", "0", "cara")
         );
+    }
+
+    private static Stream<Arguments> providerParaBateriaRecomendacaoDuasVendas() {
+        return Stream.of(
+
+                Arguments.of(BigDecimal.valueOf(8), "Compra", "10", "cara"),
+                Arguments.of(BigDecimal.valueOf(10), "Compra", "10", "barata"),
+                Arguments.of(BigDecimal.valueOf(11), "Compra", "5", "barata"),
+                Arguments.of(BigDecimal.valueOf(15), "Compra", "5", "barata"),
+                Arguments.of(BigDecimal.valueOf(20), "Neutro", "0", "cara")
+        );
+    }
+
+    public List<MovimentoVenda> criarListaVendas(Ativo ativo, Double... precos) {
+
+        return Arrays.stream(precos)
+                .map(preco -> {
+                    MovimentoVenda v = new MovimentoVenda();
+                    v.setAtivo(ativo);
+                    v.setPrecoPago(preco);
+                    return v;
+                })
+                .collect(Collectors.toList());
     }
 }

@@ -4,9 +4,9 @@ import br.com.lunacom.comum.domain.Ativo;
 import br.com.lunacom.comum.domain.MovimentoVenda;
 import br.com.lunacom.comum.domain.dto.CotacaoAgoraDto;
 import br.com.lunacom.comum.domain.entity.monitor.RegraCompraPorHistoricoVenda;
+import br.com.lunacom.comum.domain.enumeration.EscalaRecomendacao;
+import br.com.lunacom.comum.domain.enumeration.Recomendacao;
 import br.com.lunacom.comum.domain.enumeration.Status;
-import br.com.lunacom.ivmmonitorprocessamento.domain.EscalaRecomendacao;
-import br.com.lunacom.ivmmonitorprocessamento.domain.Recomendacao;
 import br.com.lunacom.ivmmonitorprocessamento.repository.CotacaoRepository;
 import br.com.lunacom.ivmmonitorprocessamento.repository.MovimentoVendaRepository;
 import br.com.lunacom.ivmmonitorprocessamento.repository.RegraCompraPorHistoricoVendaRepository;
@@ -18,6 +18,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.*;
+
+import static br.com.lunacom.comum.domain.enumeration.EscalaRecomendacao.*;
+import static br.com.lunacom.comum.domain.enumeration.Recomendacao.COMPRA;
+import static br.com.lunacom.comum.domain.enumeration.Recomendacao.NEUTRO;
 
 @Slf4j
 @Service
@@ -50,16 +54,16 @@ public class RegraCompraPorHistoricoVendaService {
     private static final NavigableMap<BigDecimal, EscalaRecomendacao> ESCALAS_COMPRA = new TreeMap<>();
 
     static {
-        ESCALAS_COMPRA.put(new BigDecimal("-9.99"), EscalaRecomendacao.RECOMENDACAO_10);
-        ESCALAS_COMPRA.put(new BigDecimal("-9.00"), EscalaRecomendacao.RECOMENDACAO_09);
-        ESCALAS_COMPRA.put(new BigDecimal("-8.00"), EscalaRecomendacao.RECOMENDACAO_08);
-        ESCALAS_COMPRA.put(new BigDecimal("-7.00"), EscalaRecomendacao.RECOMENDACAO_07);
-        ESCALAS_COMPRA.put(new BigDecimal("-6.00"), EscalaRecomendacao.RECOMENDACAO_06);
-        ESCALAS_COMPRA.put(new BigDecimal("-5.00"), EscalaRecomendacao.RECOMENDACAO_05);
-        ESCALAS_COMPRA.put(new BigDecimal("-4.00"), EscalaRecomendacao.RECOMENDACAO_04);
-        ESCALAS_COMPRA.put(new BigDecimal("-3.00"), EscalaRecomendacao.RECOMENDACAO_03);
-        ESCALAS_COMPRA.put(new BigDecimal("-2.00"), EscalaRecomendacao.RECOMENDACAO_02);
-        ESCALAS_COMPRA.put(new BigDecimal("-0.01"), EscalaRecomendacao.RECOMENDACAO_01);
+        ESCALAS_COMPRA.put(new BigDecimal("-9.99"), RECOMENDACAO_10);
+        ESCALAS_COMPRA.put(new BigDecimal("-9.00"), RECOMENDACAO_09);
+        ESCALAS_COMPRA.put(new BigDecimal("-8.00"), RECOMENDACAO_08);
+        ESCALAS_COMPRA.put(new BigDecimal("-7.00"), RECOMENDACAO_07);
+        ESCALAS_COMPRA.put(new BigDecimal("-6.00"), RECOMENDACAO_06);
+        ESCALAS_COMPRA.put(new BigDecimal("-5.00"), RECOMENDACAO_05);
+        ESCALAS_COMPRA.put(new BigDecimal("-4.00"), RECOMENDACAO_04);
+        ESCALAS_COMPRA.put(new BigDecimal("-3.00"), RECOMENDACAO_03);
+        ESCALAS_COMPRA.put(new BigDecimal("-2.00"), RECOMENDACAO_02);
+        ESCALAS_COMPRA.put(new BigDecimal("-0.01"), RECOMENDACAO_01);
     }
 
     public Map<Integer, RecomendacaoFinalContext> processar(String request) {
@@ -109,9 +113,9 @@ public class RegraCompraPorHistoricoVendaService {
                     default -> Optional.empty();
                 };
                 List<MovimentoVenda> vendas = dataFiltroOpcional
-                        .map(dataInicial -> movimentoVendaRepository
-                                .findAllByAtivoCodigoAndDataVendaAfter(codigoAtivo, dataInicial)
-                ).orElseGet(() -> movimentoVendaRepository
+                    .map(dataInicial -> movimentoVendaRepository
+                            .findAllByAtivoCodigoAndDataVendaAfter(codigoAtivo, dataInicial))
+                        .orElseGet(() -> movimentoVendaRepository
                                 .findAllByAtivoCodigo(codigoAtivo)
                 );
                 yield vendas;
@@ -197,17 +201,17 @@ public class RegraCompraPorHistoricoVendaService {
                 .setScale(2, RoundingMode.HALF_UP);
 
         String ajuste = "cara";
-        Recomendacao recomendacaoFinal = Recomendacao.NEUTRO;
-        EscalaRecomendacao escalaFinal = EscalaRecomendacao.RECOMENDACAO_00;
+        Recomendacao recomendacaoFinal = NEUTRO;
+        EscalaRecomendacao escalaFinal = RECOMENDACAO_00;
 
         if (relacao.compareTo(BigDecimal.ZERO) <= 0) {
             ajuste = "barata";
-            recomendacaoFinal = Recomendacao.COMPRA;
+            recomendacaoFinal = COMPRA;
             var entry = ESCALAS_COMPRA.higherEntry(relacao);
             if (entry != null) {
                 escalaFinal = entry.getValue();
             } else if (relacao.compareTo(BigDecimal.ZERO) < 0) {
-                escalaFinal = EscalaRecomendacao.RECOMENDACAO_01;
+                escalaFinal = RECOMENDACAO_01;
             }
         }
 
@@ -221,8 +225,35 @@ public class RegraCompraPorHistoricoVendaService {
     private RecomendacaoFinalContext calcularRecomendacaoParaDuasVendas(
             AtributosParaCalculoRecomendacaoContext contexto)
     {
+        BigDecimal precoAtual = contexto.cotacao.getCotacaoAtual();
+
+        final List<BigDecimal> objects = new ArrayList<>();
+        contexto.vendas
+                .stream()
+                .map(v -> BigDecimal.valueOf(v.getPrecoPago()))
+                .forEach(i -> {
+                    if (i.compareTo(precoAtual) >= 0) {
+                        objects.add(i);
+                    }
+                });
+
+        Map<Integer, EscalaRecomendacao> enquadramento = new HashMap<>();
+        enquadramento.put(2, RECOMENDACAO_10);
+        enquadramento.put(1, RECOMENDACAO_05);
+        enquadramento.put(0, RECOMENDACAO_00);
+
+        final Recomendacao recomendacaoFinal = objects.size() > 0 ? COMPRA : NEUTRO;
+        final EscalaRecomendacao escalaFinal = enquadramento.get(objects.size());
+        final String observacao = null;
+
         log.debug(LOG_EXECUTANDO_REGRA, 2, contexto.ativo().getCodigo());
-        return null;
+        return new RecomendacaoFinalContext(recomendacaoFinal, escalaFinal, null, observacao);
+    }
+
+    private void enquadrarRecomendacao(List<BigDecimal> objects,
+                                       Map<Integer, EscalaRecomendacao> enquadramento) {
+        enquadramento.get(objects.size());
+
     }
 
     private RecomendacaoFinalContext calcularRecomendacaoParaTresVendas(
