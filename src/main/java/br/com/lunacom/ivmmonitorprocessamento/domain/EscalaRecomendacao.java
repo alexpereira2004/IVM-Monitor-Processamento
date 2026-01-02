@@ -8,6 +8,7 @@ import java.util.EnumSet;
 @AllArgsConstructor
 @Getter
 public enum EscalaRecomendacao {
+    RECOMENDACAO_00("0", "Recomendação 00"),
     RECOMENDACAO_01("1", "Recomendação 01"),
     RECOMENDACAO_02("2", "Recomendação 02"),
     RECOMENDACAO_03("3", "Recomendação 03"),
