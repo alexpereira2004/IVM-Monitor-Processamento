@@ -242,19 +242,23 @@ public class RegraCompraPorHistoricoVendaService {
         enquadramento.put(1, RECOMENDACAO_05);
         enquadramento.put(0, RECOMENDACAO_00);
 
-        final Recomendacao recomendacaoFinal = objects.size() > 0 ? COMPRA : NEUTRO;
+        Recomendacao recomendacaoFinal = COMPRA;
         final EscalaRecomendacao escalaFinal = enquadramento.get(objects.size());
-        final String observacao = null;
+        String maiorMenor = "menor ou igual";
+        String terceira = String.valueOf(objects.size()).concat(" das");
+        if (objects.isEmpty()) {
+            recomendacaoFinal = NEUTRO;
+            maiorMenor = "maior";
+            terceira = "todas as";
+        }
+
+        String observacao = String.format("O preço atual considerado para o cálculo foi de R$ %s. O valor atual está %s que %s %s aquisições anteriores",
+                precoAtual, maiorMenor, terceira, contexto.vendas.size());
 
         log.debug(LOG_EXECUTANDO_REGRA, 2, contexto.ativo().getCodigo());
         return new RecomendacaoFinalContext(recomendacaoFinal, escalaFinal, null, observacao);
     }
 
-    private void enquadrarRecomendacao(List<BigDecimal> objects,
-                                       Map<Integer, EscalaRecomendacao> enquadramento) {
-        enquadramento.get(objects.size());
-
-    }
 
     private RecomendacaoFinalContext calcularRecomendacaoParaTresVendas(
             AtributosParaCalculoRecomendacaoContext contexto)
