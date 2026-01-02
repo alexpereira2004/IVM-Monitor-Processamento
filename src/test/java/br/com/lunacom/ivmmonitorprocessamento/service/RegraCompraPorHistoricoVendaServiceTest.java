@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -228,7 +229,7 @@ class RegraCompraPorHistoricoVendaServiceTest {
     private static Stream<Arguments> providerParaBateriaRecomendacaoDuasVendas() {
         return Stream.of(
 
-                Arguments.of(BigDecimal.valueOf(8), "Compra", "10", "cara"),
+                Arguments.of(BigDecimal.valueOf(8), "Compra", "10", "barata"),
                 Arguments.of(BigDecimal.valueOf(10), "Compra", "10", "barata"),
                 Arguments.of(BigDecimal.valueOf(11), "Compra", "5", "barata"),
                 Arguments.of(BigDecimal.valueOf(15), "Compra", "5", "barata"),
@@ -237,12 +238,24 @@ class RegraCompraPorHistoricoVendaServiceTest {
     }
 
     public List<MovimentoVenda> criarListaVendas(Ativo ativo, Double... precos) {
+        final List<LocalDate> dataAquisicaoList = Arrays.asList(
+                LocalDate.of(2025,12,1),
+                LocalDate.of(2026,1,10),
+                LocalDate.of(2026,2,15),
+                LocalDate.of(2026,3,20),
+                LocalDate.of(2026,4,25),
+                LocalDate.of(2026,5,30)
+        );
+
+        AtomicInteger cont = new AtomicInteger();
 
         return Arrays.stream(precos)
                 .map(preco -> {
                     MovimentoVenda v = new MovimentoVenda();
                     v.setAtivo(ativo);
                     v.setPrecoPago(preco);
+                    v.setDataAquisicao(dataAquisicaoList.get(cont.get()));
+                    cont.getAndIncrement();
                     return v;
                 })
                 .collect(Collectors.toList());
