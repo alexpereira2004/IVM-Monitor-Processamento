@@ -251,12 +251,31 @@ public class RegraCompraPorHistoricoVendaService {
             maiorMenor = "maior";
             terceira = "todas as";
         }
-
-        String observacao = String.format("O preço atual considerado para o cálculo foi de R$ %s. O valor atual está %s que %s %s aquisições anteriores",
-                precoAtual, maiorMenor, terceira, contexto.vendas.size());
+        String vendasDescricao = this.listarVendas(contexto.vendas);
+        String observacao = String.format("O preço atual considerado para o cálculo foi de R$ %s. O valor atual está %s que %s %s aquisições anteriores. %s",
+                precoAtual, maiorMenor, terceira, contexto.vendas.size(), vendasDescricao);
 
         log.debug(LOG_EXECUTANDO_REGRA, 2, contexto.ativo().getCodigo());
         return new RecomendacaoFinalContext(recomendacaoFinal, escalaFinal, null, observacao);
+    }
+
+    private String listarVendas(List<MovimentoVenda> vendas) {
+        if (vendas == null || vendas.isEmpty()) {
+            return "()";
+        }
+
+        StringBuilder sb = new StringBuilder("(");
+
+        for (MovimentoVenda i : vendas) {
+            sb.append("R$ ")
+                    .append(i.getPrecoPago())
+                    .append(" em ")
+                    .append(i.getDataAquisicao())
+                    .append("\n");
+        }
+
+        sb.append(")");
+        return sb.toString();
     }
 
 
