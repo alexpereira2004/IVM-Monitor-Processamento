@@ -46,6 +46,21 @@ public class RegraCompraPorHistoricoVendaService {
             String observacao
     ) {}
 
+    private static final NavigableMap<BigDecimal, EscalaRecomendacao> ESCALAS_COMPRA = new TreeMap<>();
+
+    static {
+        ESCALAS_COMPRA.put(new BigDecimal("-9.99"), EscalaRecomendacao.RECOMENDACAO_10);
+        ESCALAS_COMPRA.put(new BigDecimal("-9.00"), EscalaRecomendacao.RECOMENDACAO_09);
+        ESCALAS_COMPRA.put(new BigDecimal("-8.00"), EscalaRecomendacao.RECOMENDACAO_08);
+        ESCALAS_COMPRA.put(new BigDecimal("-7.00"), EscalaRecomendacao.RECOMENDACAO_07);
+        ESCALAS_COMPRA.put(new BigDecimal("-6.00"), EscalaRecomendacao.RECOMENDACAO_06);
+        ESCALAS_COMPRA.put(new BigDecimal("-5.00"), EscalaRecomendacao.RECOMENDACAO_05);
+        ESCALAS_COMPRA.put(new BigDecimal("-4.00"), EscalaRecomendacao.RECOMENDACAO_04);
+        ESCALAS_COMPRA.put(new BigDecimal("-3.00"), EscalaRecomendacao.RECOMENDACAO_03);
+        ESCALAS_COMPRA.put(new BigDecimal("-2.00"), EscalaRecomendacao.RECOMENDACAO_02);
+        ESCALAS_COMPRA.put(new BigDecimal("-0.01"), EscalaRecomendacao.RECOMENDACAO_01);
+    }
+
     public Map<Integer, RecomendacaoFinalContext> processar(String request) {
 
         Map<Integer, RecomendacaoFinalContext> recomendacaoFinalContextMap = new HashMap<>();
@@ -173,57 +188,30 @@ public class RegraCompraPorHistoricoVendaService {
         log.debug(LOG_EXECUTANDO_REGRA, 1, contexto.ativo().getCodigo());
 
         BigDecimal precoAtual = contexto.cotacao.getCotacaoAtual();
-        final BigDecimal precoPago = BigDecimal.valueOf(contexto.vendas.get(0).getPrecoPago());
+        BigDecimal precoPago = BigDecimal.valueOf(contexto.vendas.get(0).getPrecoPago());
 
-        final BigDecimal relacao = precoAtual.subtract(precoPago)
+        BigDecimal relacao = precoAtual.subtract(precoPago)
                 .divide(precoPago, 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))
                 .setScale(2, RoundingMode.HALF_UP);
 
-
         Recomendacao recomendacaoFinal = Recomendacao.NEUTRO;
         EscalaRecomendacao escalaFinal = EscalaRecomendacao.RECOMENDACAO_00;
 
-        if (relacao.compareTo(BigDecimal.valueOf(-9.99)) < 0) {
+        if (relacao.compareTo(BigDecimal.ZERO) <= 0) {
             recomendacaoFinal = Recomendacao.COMPRA;
-            escalaFinal = EscalaRecomendacao.RECOMENDACAO_10;
-        } else if (relacao.compareTo(BigDecimal.valueOf(-9.00)) < 0) {
-            recomendacaoFinal = Recomendacao.COMPRA;
-            escalaFinal = EscalaRecomendacao.RECOMENDACAO_09;
-        } else if (relacao.compareTo(BigDecimal.valueOf(-8.00)) < 0) {
-            recomendacaoFinal = Recomendacao.COMPRA;
-            escalaFinal = EscalaRecomendacao.RECOMENDACAO_08;
-        } else if (relacao.compareTo(BigDecimal.valueOf(-7.00)) < 0) {
-            recomendacaoFinal = Recomendacao.COMPRA;
-            escalaFinal = EscalaRecomendacao.RECOMENDACAO_07;
-        } else if (relacao.compareTo(BigDecimal.valueOf(-6.00)) < 0) {
-            recomendacaoFinal = Recomendacao.COMPRA;
-            escalaFinal = EscalaRecomendacao.RECOMENDACAO_06;
-        } else if (relacao.compareTo(BigDecimal.valueOf(-5.00)) < 0) {
-            recomendacaoFinal = Recomendacao.COMPRA;
-            escalaFinal = EscalaRecomendacao.RECOMENDACAO_05;
-        } else if (relacao.compareTo(BigDecimal.valueOf(-4.00)) < 0) {
-            recomendacaoFinal = Recomendacao.COMPRA;
-            escalaFinal = EscalaRecomendacao.RECOMENDACAO_04;
-        } else if (relacao.compareTo(BigDecimal.valueOf(-3.00)) < 0) {
-            recomendacaoFinal = Recomendacao.COMPRA;
-            escalaFinal = EscalaRecomendacao.RECOMENDACAO_03;
-        } else if (relacao.compareTo(BigDecimal.valueOf(-2.00)) < 0) {
-            recomendacaoFinal = Recomendacao.COMPRA;
-            escalaFinal = EscalaRecomendacao.RECOMENDACAO_02;
-        } else if (relacao.compareTo(BigDecimal.valueOf(-0.01)) < 0) {
-            recomendacaoFinal = Recomendacao.COMPRA;
-            escalaFinal = EscalaRecomendacao.RECOMENDACAO_01;
-        } else if (relacao.compareTo(BigDecimal.valueOf(0.00)) == 0) {
-            recomendacaoFinal = Recomendacao.COMPRA;
+            var entry = ESCALAS_COMPRA.higherEntry(relacao);
+            if (entry != null) {
+                escalaFinal = entry.getValue();
+            } else if (relacao.compareTo(BigDecimal.ZERO) < 0) {
+                escalaFinal = EscalaRecomendacao.RECOMENDACAO_01;
+            }
         }
 
-
-        return new RecomendacaoFinalContext(
-                recomendacaoFinal,
-                escalaFinal,
-                null, null);
+        return new RecomendacaoFinalContext(recomendacaoFinal, escalaFinal, null, null);
     }
+
+
 
     private RecomendacaoFinalContext calcularRecomendacaoParaDuasVendas(
             AtributosParaCalculoRecomendacaoContext contexto)
