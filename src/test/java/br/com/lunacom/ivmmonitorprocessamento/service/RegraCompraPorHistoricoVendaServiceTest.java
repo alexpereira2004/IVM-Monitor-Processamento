@@ -28,10 +28,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
 
 @ExtendWith(MockitoExtension.class)
 class RegraCompraPorHistoricoVendaServiceTest {
@@ -102,7 +104,8 @@ class RegraCompraPorHistoricoVendaServiceTest {
     @DisplayName("Deve calcular com sucesso recomendacao para acao que tenha UMA venda")
     void deveProcessarComSucesso(BigDecimal precoAtual,
                                  String descEsperada,
-                                 String escalaEsperada) throws Exception
+                                 String escalaEsperada,
+                                 String ajuste) throws Exception
     {
         // Cenário
         CotacaoAgoraDto cotacao = new CotacaoAgoraDto();
@@ -132,6 +135,7 @@ class RegraCompraPorHistoricoVendaServiceTest {
         assertNotNull(resposta);
         assertEquals(descEsperada, resposta.get(1).recomendacao().getDescricao());
         assertEquals(escalaEsperada, resposta.get(1).escalaRecomendacao().getCodigo());
+        assertThat(resposta.get(1).observacao()).contains(ajuste);
     }
 
     @Test
@@ -156,20 +160,20 @@ class RegraCompraPorHistoricoVendaServiceTest {
     private static Stream<Arguments> providerParaBateriaRecomendacao() {
         return Stream.of(
 
-                Arguments.of(BigDecimal.valueOf(8), "Compra", "10"),
-                Arguments.of(BigDecimal.valueOf(9.09), "Compra", "9"),
-                Arguments.of(BigDecimal.valueOf(9.19), "Compra", "8"),
-                Arguments.of(BigDecimal.valueOf(9.29), "Compra", "7"),
-                Arguments.of(BigDecimal.valueOf(9.39), "Compra", "6"),
-                Arguments.of(BigDecimal.valueOf(9.49), "Compra", "5"),
-                Arguments.of(BigDecimal.valueOf(9.59), "Compra", "4"),
-                Arguments.of(BigDecimal.valueOf(9.69), "Compra", "3"),
-                Arguments.of(BigDecimal.valueOf(9.79), "Compra", "2"),
-                Arguments.of(BigDecimal.valueOf(9.89), "Compra", "1"),
-                Arguments.of(BigDecimal.valueOf(9.99), "Compra", "1"),
-                Arguments.of(BigDecimal.valueOf(10), "Compra", "0"),
-                Arguments.of(BigDecimal.valueOf(10.02), "Neutro", "0"),
-                Arguments.of(BigDecimal.valueOf(11), "Neutro", "0")
+                Arguments.of(BigDecimal.valueOf(8), "Compra", "10", "barata"),
+                Arguments.of(BigDecimal.valueOf(9.09), "Compra", "9", "barata"),
+                Arguments.of(BigDecimal.valueOf(9.19), "Compra", "8", "barata"),
+                Arguments.of(BigDecimal.valueOf(9.29), "Compra", "7", "barata"),
+                Arguments.of(BigDecimal.valueOf(9.39), "Compra", "6", "barata"),
+                Arguments.of(BigDecimal.valueOf(9.49), "Compra", "5", "barata"),
+                Arguments.of(BigDecimal.valueOf(9.59), "Compra", "4", "barata"),
+                Arguments.of(BigDecimal.valueOf(9.69), "Compra", "3", "barata"),
+                Arguments.of(BigDecimal.valueOf(9.79), "Compra", "2", "barata"),
+                Arguments.of(BigDecimal.valueOf(9.89), "Compra", "1", "barata"),
+                Arguments.of(BigDecimal.valueOf(9.99), "Compra", "1" ,"barata"),
+                Arguments.of(BigDecimal.valueOf(10), "Compra", "0", "barata"),
+                Arguments.of(BigDecimal.valueOf(10.02), "Neutro", "0", "cara"),
+                Arguments.of(BigDecimal.valueOf(11), "Neutro", "0", "cara")
         );
     }
 }
