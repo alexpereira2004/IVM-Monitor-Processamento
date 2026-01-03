@@ -187,6 +187,51 @@ class RegraCompraPorHistoricoVendaServiceTest {
 //        assertThat(resposta.get(1).observacao()).contains(ajuste);
     }
 
+
+    @ParameterizedTest
+    @MethodSource("providerParaBateriaRecomendacaoTresVendas")
+    @DisplayName("Deve calcular com sucesso recomendacao para acao que tenha TRES vendas")
+    void deveProcessarComSucessoTresVendas(BigDecimal precoAtual,
+                                           String descEsperada,
+                                           String escalaEsperada,
+                                           String ajuste) throws Exception
+    {
+        // Cenário
+        CotacaoAgoraDto cotacao = new CotacaoAgoraDto();
+        cotacao.setCodigo("PETR4");
+        cotacao.setCotacaoAtual(precoAtual);
+
+        final Ativo ativo = new Ativo();
+        ativo.setCodigo("PETR4");
+
+
+        Monitor monitor = new Monitor();
+        monitor.setAtivo(ativo);
+
+        final RegraCompraPorHistoricoVenda regra = new RegraCompraPorHistoricoVenda();
+        regra.setMonitor(monitor);
+        regra.setPeriodo(PeriodoVenda.TODO_HISTORICO);
+        regra.setId(1);
+
+        when(cotacaoRepository.pesquisarCotacaoAgora()).thenReturn(List.of(cotacao));
+
+        when(repository.findByStatusAndValidade(Status.ATIVO, null))
+                .thenReturn(List.of(regra));
+
+        final List<MovimentoVenda> vendaList = this.criarListaVendas(ativo, 10.0, 12.5, 15.0);
+        when(movimentoVendaRepository.findAllByAtivoCodigo("PETR4")).thenReturn(vendaList);
+
+        // Ação
+        final Map<Integer, RegraCompraPorHistoricoVendaService.RecomendacaoFinalContext> resposta =
+                service.processar("");
+
+        // Verificação
+        assertNotNull(resposta);
+        assertEquals(descEsperada, resposta.get(1).recomendacao().getDescricao());
+        assertEquals(escalaEsperada, resposta.get(1).escalaRecomendacao().getCodigo());
+//        assertThat(resposta.get(1).observacao()).contains(ajuste);
+    }
+
     @Test
     @DisplayName("Deve lançar exceção quando não houver cotação para o ativo no processamento")
     void deveLancarExcecaoQuandoSemCotacao() {
@@ -233,6 +278,20 @@ class RegraCompraPorHistoricoVendaServiceTest {
                 Arguments.of(BigDecimal.valueOf(10), "Compra", "10", "barata"),
                 Arguments.of(BigDecimal.valueOf(11), "Compra", "5", "barata"),
                 Arguments.of(BigDecimal.valueOf(15), "Compra", "5", "barata"),
+                Arguments.of(BigDecimal.valueOf(20), "Neutro", "0", "cara")
+        );
+    }
+
+
+    private static Stream<Arguments> providerParaBateriaRecomendacaoTresVendas() {
+        return Stream.of(
+
+                Arguments.of(BigDecimal.valueOf(8), "Compra", "10", "barata"),
+                Arguments.of(BigDecimal.valueOf(10), "Compra", "10", "barata"),
+                Arguments.of(BigDecimal.valueOf(11), "Compra", "7", "barata"),
+                Arguments.of(BigDecimal.valueOf(12.5), "Compra", "7", "barata"),
+                Arguments.of(BigDecimal.valueOf(13), "Compra", "4", "barata"),
+                Arguments.of(BigDecimal.valueOf(15), "Compra", "4", "barata"),
                 Arguments.of(BigDecimal.valueOf(20), "Neutro", "0", "cara")
         );
     }
