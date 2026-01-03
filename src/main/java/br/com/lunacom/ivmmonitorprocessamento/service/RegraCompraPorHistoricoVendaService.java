@@ -166,11 +166,7 @@ public class RegraCompraPorHistoricoVendaService {
 
         return switch (movimentoVendas.size()) {
             case 1 -> this.calcularRecomendacaoParaUmaVenda(contexto);
-            case 2 -> this.calcularRecomendacaoParaDuasVendas(contexto);
-            case 3 -> this.calcularRecomendacaoParaTresVendas(contexto);
-            case 4 -> this.calcularRecomendacaoParaQuatroVendas(contexto);
-            case 5 -> this.calcularRecomendacaoParaCincoVendas(contexto);
-            default -> this.calcularRecomendacaoParaMaisDeCincoVendas(contexto);
+            default -> this.calcularRecomendacaoParaMultiplasVendas(contexto);
         };
 
     }
@@ -221,44 +217,6 @@ public class RegraCompraPorHistoricoVendaService {
     }
 
 
-
-    private RecomendacaoFinalContext calcularRecomendacaoParaDuasVendas(
-            AtributosParaCalculoRecomendacaoContext contexto)
-    {
-        BigDecimal precoAtual = contexto.cotacao.getCotacaoAtual();
-
-        final List<BigDecimal> objects = new ArrayList<>();
-        contexto.vendas
-                .stream()
-                .map(v -> BigDecimal.valueOf(v.getPrecoPago()))
-                .forEach(i -> {
-                    if (i.compareTo(precoAtual) >= 0) {
-                        objects.add(i);
-                    }
-                });
-
-        Map<Integer, EscalaRecomendacao> enquadramento = new HashMap<>();
-        enquadramento.put(2, RECOMENDACAO_10);
-        enquadramento.put(1, RECOMENDACAO_05);
-        enquadramento.put(0, RECOMENDACAO_00);
-
-        Recomendacao recomendacaoFinal = COMPRA;
-        final EscalaRecomendacao escalaFinal = enquadramento.get(objects.size());
-        String maiorMenor = "menor ou igual";
-        String terceira = String.valueOf(objects.size()).concat(" das");
-        if (objects.isEmpty()) {
-            recomendacaoFinal = NEUTRO;
-            maiorMenor = "maior";
-            terceira = "todas as";
-        }
-        String vendasDescricao = this.listarVendas(contexto.vendas);
-        String observacao = String.format("O preço atual considerado para o cálculo foi de R$ %s. O valor atual está %s que %s %s aquisições anteriores. %s",
-                precoAtual, maiorMenor, terceira, contexto.vendas.size(), vendasDescricao);
-
-        log.debug(LOG_EXECUTANDO_REGRA, 2, contexto.ativo().getCodigo());
-        return new RecomendacaoFinalContext(recomendacaoFinal, escalaFinal, null, observacao);
-    }
-
     private String listarVendas(List<MovimentoVenda> vendas) {
         if (vendas == null || vendas.isEmpty()) {
             return "()";
@@ -279,11 +237,74 @@ public class RegraCompraPorHistoricoVendaService {
     }
 
 
-    private RecomendacaoFinalContext calcularRecomendacaoParaTresVendas(
+    private RecomendacaoFinalContext calcularRecomendacaoParaMultiplasVendas(
             AtributosParaCalculoRecomendacaoContext contexto)
     {
+        Integer vendasTotal = contexto.vendas.size();
+
+        Map<Integer, EscalaRecomendacao> enquadramento
+                = getIntegerEscalaRecomendacaoMap(vendasTotal);
+
+        BigDecimal precoAtual = contexto.cotacao.getCotacaoAtual();
+
+        final List<BigDecimal> objects = new ArrayList<>();
+        contexto.vendas
+                .stream()
+                .map(v -> BigDecimal.valueOf(v.getPrecoPago()))
+                .forEach(i -> {
+                    if (i.compareTo(precoAtual) >= 0) {
+                        objects.add(i);
+                    }
+                });
+
+        Recomendacao recomendacaoFinal = COMPRA;
+        final EscalaRecomendacao escalaFinal = enquadramento.get(objects.size());
+        String maiorMenor = "menor ou igual";
+        String terceira = String.valueOf(objects.size()).concat(" das");
+        if (objects.isEmpty()) {
+            recomendacaoFinal = NEUTRO;
+            maiorMenor = "maior";
+            terceira = "todas as";
+        }
+        String vendasDescricao = this.listarVendas(contexto.vendas);
+        String observacao = String.format("O preço atual considerado para o cálculo foi de R$ %s. O valor atual está %s que %s %s aquisições anteriores. %s",
+                precoAtual, maiorMenor, terceira, vendasTotal, vendasDescricao);
+
         log.debug(LOG_EXECUTANDO_REGRA, 3, contexto.ativo().getCodigo());
-        return null;
+        return new RecomendacaoFinalContext(recomendacaoFinal, escalaFinal, null, observacao);
+
+    }
+
+    private Map<Integer, EscalaRecomendacao> getIntegerEscalaRecomendacaoMap(Integer quantidade) {
+
+        return switch (quantidade) {
+
+            case 2 -> {
+                Map<Integer, EscalaRecomendacao> enquadramento = new HashMap<>();
+                enquadramento.put(2, RECOMENDACAO_10);
+                enquadramento.put(1, RECOMENDACAO_05);
+                enquadramento.put(0, RECOMENDACAO_00);
+                yield enquadramento;
+            }
+            case 3 -> {
+                Map<Integer, EscalaRecomendacao> enquadramento = new HashMap<>();
+                enquadramento.put(3, RECOMENDACAO_10);
+                enquadramento.put(2, RECOMENDACAO_07);
+                enquadramento.put(1, RECOMENDACAO_04);
+                enquadramento.put(0, RECOMENDACAO_00);
+                yield enquadramento;
+            }
+            default -> {
+                Map<Integer, EscalaRecomendacao> enquadramento = new HashMap<>();
+                enquadramento.put(4, RECOMENDACAO_10);
+                enquadramento.put(3, RECOMENDACAO_08);
+                enquadramento.put(2, RECOMENDACAO_06);
+                enquadramento.put(1, RECOMENDACAO_02);
+                enquadramento.put(0, RECOMENDACAO_00);
+                yield enquadramento;
+            }
+        };
+
     }
 
     private RecomendacaoFinalContext calcularRecomendacaoParaQuatroVendas(
