@@ -12,6 +12,8 @@ import br.com.lunacom.ivmmonitorprocessamento.repository.MovimentoVendaRepositor
 import br.com.lunacom.ivmmonitorprocessamento.repository.RegraCompraPorHistoricoVendaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -112,12 +114,20 @@ public class RegraCompraPorHistoricoVendaService {
                     case ULTIMOS_12_MESES -> Optional.of(LocalDate.now().minusYears(1));
                     default -> Optional.empty();
                 };
-                List<MovimentoVenda> vendas = dataFiltroOpcional
-                    .map(dataInicial -> movimentoVendaRepository
-                            .findAllByAtivoCodigoAndDataVendaAfter(codigoAtivo, dataInicial))
-                        .orElseGet(() -> movimentoVendaRepository
-                                .findAllByAtivoCodigo(codigoAtivo)
-                );
+                Pageable limiteCinco = PageRequest.of(0, 5);
+                List<MovimentoVenda> vendas;
+
+                if (dataFiltroOpcional.isPresent()) {
+                    vendas = movimentoVendaRepository
+                                .findTop5ByAtivoCodigoAndDataVendaAfterOrderByDataAquisicaoDesc(
+                                    codigoAtivo, dataFiltroOpcional.get());
+                } else {
+                    vendas = movimentoVendaRepository
+                            .buscarUltimasCincoVendas(
+                                    codigoAtivo,
+                                    regra.getExcluirPrejuizos(),
+                                    limiteCinco);
+                }
                 yield vendas;
             }
         };
@@ -137,13 +147,6 @@ public class RegraCompraPorHistoricoVendaService {
         );
 
         return all;
-//        Monitor monitorProxy = all.get(13).getMonitor();
-//
-//        final String s = monitorProxy.getAtivo().toString();
-//
-//        final List<MovimentoVenda> allByAtivoCodigo = movimentoVendaRepository.findAllByAtivoCodigo(monitorProxy.getAtivo().getCodigo());
-//
-//        log.info(all.get(0).getMonitor().getAtivo().toString());
     }
 
     private RecomendacaoFinalContext calcularRecomendacao(
