@@ -277,6 +277,51 @@ class RegraCompraPorHistoricoVendaServiceTest {
 //        assertThat(resposta.get(1).observacao()).contains(ajuste);
     }
 
+
+    @ParameterizedTest
+    @MethodSource("providerParaBateriaRecomendacaoCincoVendas")
+    @DisplayName("Deve calcular com sucesso recomendacao para acao que tenha QUATRO vendas")
+    void deveProcessarComSucessoCincoVendas(BigDecimal precoAtual,
+                                             String descEsperada,
+                                             String escalaEsperada,
+                                             String ajuste) throws Exception
+    {
+        // Cenário
+        CotacaoAgoraDto cotacao = new CotacaoAgoraDto();
+        cotacao.setCodigo("BRSR6");
+        cotacao.setCotacaoAtual(precoAtual);
+
+        final Ativo ativo = new Ativo();
+        ativo.setCodigo("BRSR6");
+
+
+        Monitor monitor = new Monitor();
+        monitor.setAtivo(ativo);
+
+        final RegraCompraPorHistoricoVenda regra = new RegraCompraPorHistoricoVenda();
+        regra.setMonitor(monitor);
+        regra.setPeriodo(PeriodoVenda.TODO_HISTORICO);
+        regra.setId(1);
+
+        when(cotacaoRepository.pesquisarCotacaoAgora()).thenReturn(List.of(cotacao));
+
+        when(repository.findByStatusAndValidade(Status.ATIVO, null))
+                .thenReturn(List.of(regra));
+
+        final List<MovimentoVenda> vendaList = this.criarListaVendas(ativo, 10.0, 12.5, 15.0, 17.5, 20.0);
+        when(movimentoVendaRepository.findAllByAtivoCodigo("BRSR6")).thenReturn(vendaList);
+
+        // Ação
+        final Map<Integer, RegraCompraPorHistoricoVendaService.RecomendacaoFinalContext> resposta =
+                service.processar("");
+
+        // Verificação
+        assertNotNull(resposta);
+        assertEquals(descEsperada, resposta.get(1).recomendacao().getDescricao());
+        assertEquals(escalaEsperada, resposta.get(1).escalaRecomendacao().getCodigo());
+//        assertThat(resposta.get(1).observacao()).contains(ajuste);
+    }
+
     @Test
     @DisplayName("Deve lançar exceção quando não houver cotação para o ativo no processamento")
     void deveLancarExcecaoQuandoSemCotacao() {
@@ -356,14 +401,32 @@ class RegraCompraPorHistoricoVendaServiceTest {
         );
     }
 
+    private static Stream<Arguments> providerParaBateriaRecomendacaoCincoVendas() {
+        return Stream.of(
+
+                Arguments.of(BigDecimal.valueOf(8), "Compra", "10", "barata"),
+                Arguments.of(BigDecimal.valueOf(10), "Compra", "10", "barata"),
+                Arguments.of(BigDecimal.valueOf(11), "Compra", "8", "barata"),
+                Arguments.of(BigDecimal.valueOf(12.5), "Compra", "8", "barata"),
+                Arguments.of(BigDecimal.valueOf(13), "Compra", "6", "barata"),
+                Arguments.of(BigDecimal.valueOf(15), "Compra", "6", "barata"),
+                Arguments.of(BigDecimal.valueOf(16), "Compra", "4", "barata"),
+                Arguments.of(BigDecimal.valueOf(17.5), "Compra", "4", "barata"),
+                Arguments.of(BigDecimal.valueOf(18), "Compra", "2", "barata"),
+                Arguments.of(BigDecimal.valueOf(20), "Compra", "2", "barata"),
+                Arguments.of(BigDecimal.valueOf(21), "Neutro", "0", "cara")
+        );
+    }
+
     public List<MovimentoVenda> criarListaVendas(Ativo ativo, Double... precos) {
         final List<LocalDate> dataAquisicaoList = Arrays.asList(
                 LocalDate.of(2025,12,1),
                 LocalDate.of(2026,1,10),
                 LocalDate.of(2026,2,15),
                 LocalDate.of(2026,3,20),
-                LocalDate.of(2026,4,25),
-                LocalDate.of(2026,5,30)
+                LocalDate.of(2026,4,24),
+                LocalDate.of(2026,5,28),
+                LocalDate.of(2026,6,30)
         );
 
         AtomicInteger cont = new AtomicInteger();
