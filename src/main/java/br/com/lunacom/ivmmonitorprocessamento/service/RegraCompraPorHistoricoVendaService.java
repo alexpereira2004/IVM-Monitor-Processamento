@@ -294,11 +294,21 @@ public class RegraCompraPorHistoricoVendaService {
                 enquadramento.put(0, RECOMENDACAO_00);
                 yield enquadramento;
             }
-            default -> {
+            case 4 -> {
                 Map<Integer, EscalaRecomendacao> enquadramento = new HashMap<>();
                 enquadramento.put(4, RECOMENDACAO_10);
                 enquadramento.put(3, RECOMENDACAO_08);
                 enquadramento.put(2, RECOMENDACAO_06);
+                enquadramento.put(1, RECOMENDACAO_02);
+                enquadramento.put(0, RECOMENDACAO_00);
+                yield enquadramento;
+            }
+            default -> {
+                Map<Integer, EscalaRecomendacao> enquadramento = new HashMap<>();
+                enquadramento.put(5, RECOMENDACAO_10);
+                enquadramento.put(4, RECOMENDACAO_08);
+                enquadramento.put(3, RECOMENDACAO_06);
+                enquadramento.put(2, RECOMENDACAO_04);
                 enquadramento.put(1, RECOMENDACAO_02);
                 enquadramento.put(0, RECOMENDACAO_00);
                 yield enquadramento;
