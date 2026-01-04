@@ -148,8 +148,9 @@ public class RegraCompraPorHistoricoVendaService {
     {
 
         if (movimentoVendas == null || movimentoVendas.isEmpty()) {
-            log.warn(String.format(SEM_VENDAS, regra.getId()));
-            return null;
+            String observacao = String.format(SEM_VENDAS, regra.getId());
+            log.warn(observacao);
+            return new RecomendacaoFinalContext(null, null, null, observacao);
         }
 
         final Ativo ativo = encontrarAtivo(movimentoVendas);
