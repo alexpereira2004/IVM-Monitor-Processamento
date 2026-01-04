@@ -16,7 +16,7 @@ public class ProcessamentoManual {
     private final RegraCompraPorHistoricoVendaService regraCompraPorHistoricoVendaService;
 
     @PostMapping("/compra-por-historico-venda")
-    public void compraPorHistoricoVenda(String request) throws Exception {
+    public void compraPorHistoricoVenda(String request) {
         regraCompraPorHistoricoVendaService.processar(request);
     }
 }

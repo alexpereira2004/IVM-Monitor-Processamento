@@ -154,9 +154,16 @@ public class RegraCompraPorHistoricoVendaService {
 
         final Ativo ativo = encontrarAtivo(movimentoVendas);
 
-        final CotacaoAgoraDto cotacao = buscarCotacao(cotacaoAgoraDtoList, ativo);
+        final Optional<CotacaoAgoraDto> cotacaoAgoraDto = buscarCotacao(cotacaoAgoraDtoList, ativo);
 
-        final AtributosParaCalculoRecomendacaoContext contexto = new AtributosParaCalculoRecomendacaoContext(ativo, cotacao, movimentoVendas);
+        if (cotacaoAgoraDto.isEmpty()) {
+            String observacao = String.format(SEM_COTACAO, ativo.getCodigo());
+            log.warn(observacao);
+            return new RecomendacaoFinalContext(null, null, null, observacao);
+        }
+
+        final AtributosParaCalculoRecomendacaoContext contexto = new AtributosParaCalculoRecomendacaoContext
+                (ativo, cotacaoAgoraDto.get(), movimentoVendas);
 
         log.info(LOG_CALCULAR_RECOMENDACAO_01, ativo.getCodigo(), movimentoVendas.size());
 
@@ -171,12 +178,10 @@ public class RegraCompraPorHistoricoVendaService {
         return movimentoVendas.get(0).getAtivo();
     }
 
-    private CotacaoAgoraDto buscarCotacao(List<CotacaoAgoraDto> cotacaoAgoraDtoList, Ativo ativo) {
-        return cotacaoAgoraDtoList.stream()
+    private Optional<CotacaoAgoraDto> buscarCotacao(List<CotacaoAgoraDto> cotacaoAgoraDtoList, Ativo ativo) {
+         return cotacaoAgoraDtoList.stream()
                 .filter(i -> i.getCodigo().equals(ativo.getCodigo()))
-                .findFirst()
-                .orElseThrow(
-                        () -> new NoSuchElementException(String.format(SEM_COTACAO, ativo.getCodigo())));
+                .findFirst();
     }
 
     private RecomendacaoFinalContext calcularRecomendacaoParaUmaVenda(
@@ -343,9 +348,21 @@ public class RegraCompraPorHistoricoVendaService {
             return;
         }
 
+        final String recomendacao = Optional
+                .ofNullable(recomendacaoFinalContext)
+                .map( ctx -> ctx.recomendacao)
+                .map( rec -> rec.getCodigo())
+                .orElse(null);
+
+        final Integer escala = Optional
+                .ofNullable(recomendacaoFinalContext)
+                .map( ctx -> ctx.escalaRecomendacao)
+                .map( esc -> Integer.parseInt(esc.getCodigo()))
+                .orElse(null);
+
+        regra.setRecomendacao(recomendacao);
+        regra.setRecomendacaoEscala(escala);
         regra.setAnalise(recomendacaoFinalContext.analise);
-        regra.setRecomendacao(recomendacaoFinalContext.recomendacao.getCodigo());
-        regra.setRecomendacaoEscala(Integer.parseInt(recomendacaoFinalContext.escalaRecomendacao.getCodigo()));
         regra.setObservacao(recomendacaoFinalContext.observacao);
         repository.save(regra);
     }
