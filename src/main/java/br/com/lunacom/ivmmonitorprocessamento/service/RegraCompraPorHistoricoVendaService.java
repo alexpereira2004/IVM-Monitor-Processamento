@@ -31,7 +31,7 @@ import static br.com.lunacom.comum.domain.enumeration.Recomendacao.NEUTRO;
 public class RegraCompraPorHistoricoVendaService {
 
     public static final String SEM_COTACAO = "Não foi encontrada a cotação para o Ativo %s ao tentar calcular a recomendação";
-    public static final String SEM_VENDAS = "Nenhum movimento de venda fornecido para cálculo. Esse problema aconteceu para a regra %";
+    public static final String SEM_VENDAS = "Nenhum movimento de venda fornecido para cálculo. Esse problema aconteceu para a regra %s";
     public static final String LOG_CALCULAR_RECOMENDACAO_01 = "Processando recomendação para {} (Volume: {} vendas)";
     public static final String LOG_EXECUTANDO_REGRA = "Executando regra específica para {} venda de {}";
     public static final String LOG_SALVAR_RECOMENDACAO_01 = "Uma recomendacao não pode ser salva pois ela não existe";
@@ -115,19 +115,12 @@ public class RegraCompraPorHistoricoVendaService {
                     default -> Optional.empty();
                 };
                 Pageable limiteCinco = PageRequest.of(0, 5);
-                List<MovimentoVenda> vendas;
-
-                if (dataFiltroOpcional.isPresent()) {
-                    vendas = movimentoVendaRepository
-                                .findTop5ByAtivoCodigoAndDataVendaAfterOrderByDataAquisicaoDesc(
-                                    codigoAtivo, dataFiltroOpcional.get());
-                } else {
-                    vendas = movimentoVendaRepository
-                            .buscarUltimasCincoVendas(
-                                    codigoAtivo,
-                                    regra.getExcluirPrejuizos(),
-                                    limiteCinco);
-                }
+                List<MovimentoVenda> vendas = movimentoVendaRepository
+                        .buscarUltimasCincoVendas(
+                                codigoAtivo,
+                                dataFiltroOpcional.orElse(null),
+                                regra.getExcluirPrejuizos(),
+                                limiteCinco);
                 yield vendas;
             }
         };
@@ -225,7 +218,7 @@ public class RegraCompraPorHistoricoVendaService {
             return "()";
         }
 
-        StringBuilder sb = new StringBuilder("(");
+        StringBuilder sb = new StringBuilder("(\n");
 
         for (MovimentoVenda i : vendas) {
             sb.append("R$ ")
