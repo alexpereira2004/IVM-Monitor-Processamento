@@ -30,6 +30,7 @@ import static br.com.lunacom.comum.domain.enumeration.Recomendacao.NEUTRO;
 @RequiredArgsConstructor
 public class RegraCompraPorHistoricoVendaService {
 
+    public static final String MSG_ATIVO_NAO_ENCONTRADO = "Ativo \"%s\" não encontrado então esse registro de carteira não poderá ser salvo";
     public static final String SEM_COTACAO = "Não foi encontrada a cotação para o Ativo %s ao tentar calcular a recomendação";
     public static final String SEM_VENDAS = "Nenhum movimento de venda fornecido para cálculo. Esse problema aconteceu para a regra %s";
     public static final String LOG_CALCULAR_RECOMENDACAO_01 = "Processando recomendação para {} (Volume: {} vendas)";
@@ -68,13 +69,13 @@ public class RegraCompraPorHistoricoVendaService {
         ESCALAS_COMPRA.put(new BigDecimal("-0.01"), RECOMENDACAO_01);
     }
 
-    public Map<Integer, RecomendacaoFinalContext> processar(String request) {
+    public Map<Integer, RecomendacaoFinalContext> processar(String code) {
 
         Map<Integer, RecomendacaoFinalContext> recomendacaoFinalContextMap = new HashMap<>();
 
         final List<CotacaoAgoraDto> cotacaoAgoraDtoList = this.buscarCotacaoAgora();
 
-        final List<RegraCompraPorHistoricoVenda> regraList = this.buscarRegrasAtivas();
+        final List<RegraCompraPorHistoricoVenda> regraList = this.buscarRegrasAtivas(code);
 
         regraList.forEach( regra -> {
             final List<MovimentoVenda> movimentoVendas = this.buscarVendasPassadas(regra);
@@ -134,10 +135,20 @@ public class RegraCompraPorHistoricoVendaService {
     private void buscarRegra() {
     }
 
-    private List<RegraCompraPorHistoricoVenda> buscarRegrasAtivas() {
-        final List<RegraCompraPorHistoricoVenda> all = repository.findByStatusAndValidade(
-                Status.ATIVO, null
-        );
+    private List<RegraCompraPorHistoricoVenda> buscarRegrasAtivas(String code) {
+        List<RegraCompraPorHistoricoVenda> all = new ArrayList<>();
+        if (Objects.nonNull(code)) {
+            final Optional<RegraCompraPorHistoricoVenda> optional = repository
+                    .findByMonitor_Ativo_Codigo(code);
+            final RegraCompraPorHistoricoVenda regra = optional
+                    .orElseThrow(() -> new RuntimeException(String.format(MSG_ATIVO_NAO_ENCONTRADO, code)));
+            all.add(regra);
+
+        } else {
+            all = repository.findByStatusAndValidade(
+                    Status.ATIVO, null
+            );
+        }
 
         return all;
     }

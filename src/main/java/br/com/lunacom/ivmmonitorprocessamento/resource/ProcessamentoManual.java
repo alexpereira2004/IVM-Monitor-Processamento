@@ -3,6 +3,7 @@ package br.com.lunacom.ivmmonitorprocessamento.resource;
 import br.com.lunacom.ivmmonitorprocessamento.service.RegraCompraPorHistoricoVendaService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,5 +19,10 @@ public class ProcessamentoManual {
     @PostMapping("/compra-por-historico-venda")
     public void compraPorHistoricoVenda(String request) {
         regraCompraPorHistoricoVendaService.processar(request);
+    }
+
+    @PostMapping("/compra-por-historico-venda/{code}")
+    public void compraPorHistoricoVendaEspecifica(@PathVariable String code) {
+        regraCompraPorHistoricoVendaService.processar(code);
     }
 }
